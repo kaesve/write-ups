@@ -67,9 +67,9 @@
   </figcaption>
 </figure>
 
-Some bird types like to travel in large groups -- flocks. These flocks can be mesmerising to watch. They draw large dark shapes in the sky, that quickly move and change in unpredictable ways. The behaviour of these bird-clouds seems very complex. It must be difficult to make a simulation that displays similair behaviour, right? Can you imagine the complexity of trying to figure out the flight path of each bird in the simulation?
+Some bird types like to travel in large groups -- flocks. These flocks can be mesmerising to watch. They draw large dark shapes in the sky, that quickly move and change in unpredictable ways. The behaviour of these bird-clouds seems very complex. It must be difficult to make a simulation that displays similair behaviour, right? Can you imagine the complexity of trying to figure out the flight path of a hundred birds?
 
-Luckily, it turns out we can do much better than trying to control every single bird. The most prominent algorithm to simulate flocks is known as 'Boids' and was [introduced in 1987](http://www.red3d.com/cwr/papers/1987/boids.html "Flocks, Herds, and Schools:
+Luckily, it turns out we can do cool things without trying to control every single bird. In this article we look at a pretty well known algorithm called 'Boids', [introduced in 1987](http://www.red3d.com/cwr/papers/1987/boids.html "Flocks, Herds, and Schools:
 A Distributed Behavioral Model") by [C. Reynolds](http://www.red3d.com/cwr/index.html "Craigs homepage"). It is a simple and elegant way to simulate a large amount of digital birds (which Reynolds called *boids*, as in *bird-oids*), that will behave similarly to flocks like in the picture above. At its core, the algorithm leans on two ideas. Instead of calculating a path for each boid it: 
 
 1. defines how a boid can move -- how it turns and accelerates or how fast it can go for example,
@@ -77,11 +77,11 @@ A Distributed Behavioral Model") by [C. Reynolds](http://www.red3d.com/cwr/index
 
 The gist is that it defines simple rules for each boid to follow, and a much more *complex behavior emerges* from putting a large number of these boids together. This effect is also called emergent behavior.
 
-*Aside from basic programming knowledge this article relies on ['A quick introduction to the canvas'](introduction.html#XXX), which explains how to set up a canvas, implements basic drawing routines and shows how to do basic animations with this. No prior knowledge should be needed beyond this.*
+*I hope to show you that you can make pretty cool things in Javascript without much knowledge. Aside from basic programming knowledge this article relies on ['A quick introduction to the canvas'](introduction.html#XXX), which explains how to set up a canvas, draw simple shapes, and shows how to do basic animations with this. No prior knowledge should be needed beyond this, and we will use nothing but our own code.*
 
 ### Setting things up
 
-Lets start off with just one boid on to the screen. After we [set up the stage](introduction.html#XXX), we create our boid. It will not do anything yet -- we just give it a random position and draw it on the screen.
+Lets start off with getting something on the screen. After we [set up the stage](introduction.html#XXX) we can draw a circle to represent a boid. It will not do anything yet -- we just give it a random position, set the radius of the boid to be 10 pixels, and draw it on the screen.
 
 <figure for="boids_1" id="boids_1" class="figure">
   <canvas width="720" height="400">
@@ -96,6 +96,7 @@ Lets start off with just one boid on to the screen. After we [set up the stage](
 ```js
 // this code assumes we a render context set up.
 
+var boidRadius = 10;
 var boid = { 
   position: { 
     x: Math.random() * screenWidth, 
@@ -104,12 +105,12 @@ var boid = {
 };
 
 clear(ctx);
-fillCircle(ctx, 'goldenrod', boid.position, 10);
+fillCircle(ctx, 'goldenrod', boid.position, boidRadius);
 ```
 
-As you can see, whenever you run and rerun this code a single boid shows up somewhere on the screen. Nothing spectacular yet. Next we get it to move. We define a velocity for the boid and add that to the boids position in a function `update(time, dTime)`. Calling `startLoop();` from the introductory article will take care of calling our `update` on a regular interval -- some 60 times a second if possible. 
+As you can see, whenever you run and rerun this code a single boid shows up somewhere on the screen. Nothing spectacular yet. Lets get it to move to spice things up a bit. In the next code block we add a random velocity to the boid and add that to its position inside the function `update(totalTime, elapsedTime)`. Calling `startLoop();` from the introductory article will take care of calling our `update` on a regular interval -- some 60 times a second if possible.
 
-We define the velocity in pixels per second, meaning that a velocity of `{ x: 1, y: 0 }` will move our boid 1 pixel to the right every second. Our `update` passed `dTime` in milliseconds, so we need to divide it by `1000` before we apply it to our per-second velocity. With these kind of simulations it can be helpful to visualise things like the velocity. We achieve this by drawing a line off of our boid, so we can see where and how fast the boid is going.
+We define the velocity in pixels per second; a velocity of `{ x: 1, y: 0 }` will move our boid 1 pixel to the right every second. Our `update` passed `dTime` in milliseconds, so we need to divide it by `1000` before we apply it to our per-second velocity. With these kind of simulations it can be helpful to visualise things like the velocity. We achieve this by drawing a line off of our boid, so we can see where and how fast the boid is going.
 
 <figure for="boids_2" id="boids_2" class="figure">
   <canvas width="720" height="400">
@@ -122,15 +123,15 @@ We define the velocity in pixels per second, meaning that a velocity of `{ x: 1,
 </figure>
 
 ```js
-// A random velocity between 0 and 20px per second, in 4 directions. 
+// A random velocity between 0 and 20px per second in the cardinal directions. 
 boid.velocity = {
   x: Math.random() * 40 - 20, 
   y: Math.random() * 40 - 20
 };
 
-function update(time, dTime) {
-  boid.position.x += boid.velocity.x * dTime / 1000;
-  boid.position.y += boid.velocity.y * dTime / 1000;
+function update(totalTime, elapsedTime) {
+  boid.position.x += boid.velocity.x * elapsedTime / 1000;
+  boid.position.y += boid.velocity.y * elapsedTime / 1000;
 
   clear(ctx);
   fillCircle(ctx, 'goldenrod', boid.position, 10);
@@ -140,7 +141,7 @@ function update(time, dTime) {
 startLoop();
 ```
 
-The boid should move across the screen, but there is room for improvement. For one, with this approach of generating the velocity the speed is not evenly distributed across direction; the boids speed can be up to `Math.sqrt(20*20 + 20*20)` on the diagonal, but at most `Math.sqrt(20*20)` when flying in the cardinal directions. This will hardly be noticable in our final implementation, so we will just leave it as is. A more apparent problem is that the boid goes straight off of the screen and will never come back. We can solve this for now by making it wrap around the screen using the modular operator `%`. 
+The boid now moves across the screen, but there is room for improvement. For one, the speed we generate is not evenly distributed across direction; it gets up to `Math.sqrt(20*20 + 20*20)` pixels per second when the boid goes diagonally, but at most `20` px/s when flying in a straight horizontal or vertical line. This will hardly be noticable in our final implementation, so we will just leave it as is. A bigger problem is that the boid goes off of the screen and will never come back. We can solve this for now by making it 'wrap around' the screen by taking its position modulo the screen dimentions. 
 
 <figure id="boids_3" for="boids_3" class="figure">
   <canvas width="720" height="400">
