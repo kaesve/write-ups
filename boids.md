@@ -77,7 +77,7 @@ A Distributed Behavioral Model") by [C. Reynolds](http://www.red3d.com/cwr/index
 
 The gist is that it defines simple rules for each boid to follow, and a much more *complex behavior emerges* from putting a large number of these boids together. This effect is also called emergent behavior.
 
-*I hope to show you that you can make pretty cool things in Javascript without much knowledge. Aside from basic programming knowledge this article relies on ['A quick introduction to the canvas'](introduction.html#XXX), which explains how to set up a canvas, draw simple shapes, and shows how to do basic animations with this. No prior knowledge should be needed beyond this, and we will use nothing but our own code.*
+*I hope to show you that you can make pretty cool things in Javascript without much knowledge. Aside from basic programming knowledge this article relies on ['A quick introduction to the canvas'](introduction.html#XXX), which explains how to set up a canvas, draw simple shapes, and shows how to do basic animations with this. Knowing basic vector math will be useful to fully understand the article, but should not be neccesary.*
 
 ### Setting things up
 
@@ -167,13 +167,11 @@ function update(time, dTime) {
 }
 ```
 
-Our boid stays on screen, but still only moves in one direction. There is one aspect we should implement before we go on to implement the behavior code.
+### Steering clear
 
-* XXXoutline
-  * steering as force
-  * applying steering
-    * Using static or simple steering?
-  * truncating velocity
+Now that our boid stays on the screen we can focus on the first major point of the algorithm: describing how a bird *can* move. Where the original paper focuses on real, 3d birds, we keep it much more simple. Every frame we apply a force vector on our boid, which will change its velocity. We achieve this by just adding this *steering force* to `boid.velocity`. This simplified system has a slight issue we need to solve though: our boid will accelerate every time we apply the steering and can quickly reach unreasonable speeds. We will work around this by saying that the maximum flying speed of a boid is 100px/s, and we truncate the velocity of the boid if it goes too fast.
+
+The next example implements a `truncate(vector, limit)` function and apply a random steering force to the boid. We change the force every 5 seconds, so you can see how the boid changes directions. To get some extra insight, we will now draw the steering similarly to the velocity, but blue instead of black.
 
 <figure id="boids_4" for="boids_4" class="figure">
   <canvas width="720" height="400">
@@ -186,34 +184,43 @@ Our boid stays on screen, but still only moves in one direction. There is one as
 </figure>
 
 ```js
-function truncate(v, limit) {
-  var length = Math.sqrt(v.x * v.x + v.y * v.y);
+function truncate(vector, limit) {
+  var length = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
   if (length > limit) {
     return { 
-      x: v.x / length * limit, 
-      y: v.y / length * limit 
+      x: vector.x / length * limit, 
+      y: vector.y / length * limit 
     };
   }
   else {
-    return v;
+    return vector;
   }
 }
 
-function steerBoid(boid, steering, dSeconds) {
-  boid.velocity.x += steering.x * dSeconds;
-  boid.velocity.y += steering.y * dSeconds;
-  boid.velocity = truncate(boid.velocity, speed);
-}
+var maxSpeed = 100;
+var steering = {
+  x: Math.random() * 40 - 20,
+  y: Math.random() * 40 - 20
+};
+var timeOfSteeringChange = 0;
 
-function update(time, dTime) {
-  var steering = {
-    x: Math.cos(dTime / 1000),
-    y: Math.sin(dTime / 1000)
+function update(totalTime, elapsedTime) {
+  var elapsedSeconds = elapsedTime / 1000;
+
+  if (totalTime - timeOfSteeringChange > 5000) {
+    steering = {
+      x: Math.random() * 40 - 20,
+      y: Math.random() * 40 - 20
+    };
+    timeOfSteeringChange = totalTime;
   }
-  steerBoid(boid, steering, dTime / 1000);
 
-  boid.position.x += boid.velocity.x * dTime / 1000;
-  boid.position.y += boid.velocity.y * dTime / 1000;
+  boid.velocity.x += steering.x * elapsedSeconds;
+  boid.velocity.y += steering.y * elapsedSeconds;
+  boid.velocity = truncate(boid.velocity, maxSpeed);
+
+  boid.position.x += boid.velocity.x * elapsedSeconds;
+  boid.position.y += boid.velocity.y * elapsedSeconds;
 
   boid.position.x = (boid.position.x + screenWidth) % screenWidth;
   boid.position.y = (boid.position.y + screenHeight) % screenHeight;
@@ -221,10 +228,11 @@ function update(time, dTime) {
   clearScreen(ctx);
   fillCircle(ctx, 'goldenrod', boid.position, 10);
   strokeLine(ctx, 'black', boid.position, boid.velocity);
+  strokeLine(ctx, 'blue', boid.position, steering);
 }
 ```
 
-To conclude this section we extract some code into functions so we can easily work with a number of boids later on.
+That is it for the first half of the algorithm! We now have a bird-oid that can move around the screen and that we can steer. Before we move on I have compressed the code until now in two functions, so it will be easy to reuse that code later.
 
 ```js
 function createRandomBoid(speed) {
@@ -240,17 +248,23 @@ function createRandomBoid(speed) {
   }
 }
 
-function moveBoid(boid, dSeconds) {
-  boid.position.x += boid.velocity.x * dSeconds;
-  boid.position.y += boid.velocity.y * dSeconds;
+
+var boidSize = 10;
+var maxSpeed = 100;
+function updateBoid(boid, steering, elapsedSeconds) {
+  boid.velocity.x += steering.x * elapsedSeconds;
+  boid.velocity.y += steering.y * elapsedSeconds;
+  boid.velocity = truncate(boid.velocity, maxSpeed);
+
+  boid.position.x += boid.velocity.x * elapsedSeconds;
+  boid.position.y += boid.velocity.y * elapsedSeconds;
 
   boid.position.x = (boid.position.x + screenWidth) % screenWidth;
   boid.position.y = (boid.position.y + screenHeight) % screenHeight;
-}
 
-function drawBoid(boid) {
-  fillCircle(ctx, 'goldenrod', boid.position, 10);
-  strokeLine(ctx, 'black', boid.position, offset);
+  fillCircle(ctx, 'goldenrod', boid.position, boidSize);
+  strokeLine(ctx, 'black', boid.position, boid.velocity);
+  strokeLine(ctx, 'blue', boid.position, steering);
 }
 ```
 
