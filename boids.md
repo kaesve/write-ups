@@ -232,7 +232,7 @@ function update(totalTime, elapsedTime) {
 }
 ```
 
-That is it for the first half of the algorithm! We now have a bird-oid that can move around the screen and that we can steer. Before we move on I have compressed the code until now in two functions, so it will be easy to reuse that code later.
+That is it for the first half of the algorithm! We now have a bird-oid that can move around the screen and that we can steer. Before we move on with the second part of the algorithm, the actual flocking, we need to be able to work with more than one boid. To achieve this, we extract the code we wrote up until now into three functions: `createRandomBoid()`, `updateBoid(boid, steering, elapsedSeconds)` and `drawBoid(boid, color)`.
 
 ```js
 function createRandomBoid(speed) {
@@ -249,7 +249,6 @@ function createRandomBoid(speed) {
 }
 
 
-var boidSize = 10;
 var maxSpeed = 100;
 function updateBoid(boid, steering, elapsedSeconds) {
   boid.velocity.x += steering.x * elapsedSeconds;
@@ -261,51 +260,76 @@ function updateBoid(boid, steering, elapsedSeconds) {
 
   boid.position.x = (boid.position.x + screenWidth) % screenWidth;
   boid.position.y = (boid.position.y + screenHeight) % screenHeight;
+}
 
-  fillCircle(ctx, 'goldenrod', boid.position, boidSize);
+var boidSize = 10;
+function drawBoid(boid, color) {
+  fillCircle(ctx, color, boid.position, boidSize);
   strokeLine(ctx, 'black', boid.position, boid.velocity);
   strokeLine(ctx, 'blue', boid.position, steering);
 }
 ```
 
-### Neighbours
+This makes it easy to create, say, a 100 boids and update and draw them every frame. To better analyze what is happening, I find it useful to isolate one of the boids. So in the next example, we treat the first boid a bit differently. We draw it with a different color, and outside the loop that updates the rest of the boids. I also introduce an extra variable, `updateAll`, that will pause every boid but the first one when it is `false`. You can control it with a button under each following example.
 
-Now that we have a boid that can move across the screen we can start to work on its behavior. As mentioned earlier, the model decides where a boid wants to go based on its surroundings. Reynolds reasoned in his original paper that birds in a flock must make this decision on the other birds it can see, and incorporated this idea in the Boids model. Figuring out which others a boid can see is therefor the next step we implement. We structure the process as follows:
+
+<figure for="multiple_boids" id="multiple_boids" class="figure">
+  <canvas width="720" height="400">
+    Your browser does not support canvas.
+  </canvas>
+  <figcaption>
+    A boid sees other boids close to it.
+    <button onclick="updateAll = !updateAll">
+      toggle updating
+    </button><button onclick="rerunFigure();">rerun</button>
+  </figcaption>
+</figure>
 
 ```js
-function canSee(boid, other) {
-  // ... do some calculation to check if one boid can see the other
-  return true;
+var boids = [];
+
+while (boids.lengthgth < 100) {
+  boids.push(createRandomBoid(40));
 }
 
-function getVisibleBoids(boid, others) {
-  var visibleBoids = [];
-  for (var i = 0; i < others.lengthgth; ++i) {
-    // don't mark the current boid as visible.
-    if (others[i] == boid) continue;
+var updateAll = true;
+var steering = { x: 0, y: 0 };
+function update(totalTime, elapsedTime) {
+  clear(ctx);
 
-    if (canSee(boid, others[i])) {
-      visibleBoids.push(others[i]);
+  updateBoid(boids[0], steering, elapsedTime / 1000);
+  drawBoid(boids[0], 'goldenrod');
+
+  for(var i = 1; i < boids.lengthgth; ++i) {
+    if (updateAll) {
+      updateBoid(boids[i], steering, elapsedTime / 1000);
     }
+    drawBoid(boids[i], 'grey');
   }
-  return visibleBoids;
 }
 ```
 
-Given one boid and a list of all boids, we go over every boid in the list and check if the first boid can see it. Now we have to think about what our boids can see. A completely realistic calculation of which bird sees what would be really complicated. Instead, we look for a good enough approximation. A very simple example would be to use some radius, which we will call `viewRadius`, and mark any other boid within that radius as visible:
+### Neighbours
+
+We now know what a boid can do, and we can have as many of them as we want flying across our screen. The next step is to figure out where each boid wants to go. Reynolds reasoned in his original paper that a bird in a flock must base this decision on the other birds it can see, and made this central to his algorithm. We continue by simulating what each boid can see.
+
+A completely realistic bird vision simulation would be really complicated. Instead, we look for a good enough approximation. A very simple example would be to use some radius, which we will call `viewRadius`, and mark any other boid within that radius as visible:
 
 ```js
 var viewRadius = 50;
 
 function canSee(boid, other) {
-  var dX = neighbours[i].position.x - boid.position.x;
-  var dY = neighbours[i].position.y - boid.position.y;
-  var distance = Math.sqrt(dX * dX + dY * dY);
-  return distance(boid.position, other.position) <= viewRadius;
+  // Pytagoras!
+  var horizontalDistance = neighbours[i].position.x - boid.position.x;
+  var verticalDistance = neighbours[i].position.y - boid.position.y;
+  var distance = Math.sqrt(horizontalDistance * horizontalDistance 
+                          + verticalDistance * verticalDistance);
+
+  return distance <= viewRadius;
 }
 ```
 
-By adding `fillCircle(ctx, 'rgba(218, 165, 32, 0.4)', boid.position, viewRadius);` (using the rgb value of `goldenrod`, plus an alpha of `0.4`) to our `drawBoid` routine, we cas see the area in which other boids are marked as visible. But to actually see our `canSee` function in action, we need to simulate more than one boid:
+To see what this does, we extend `drawBoid` a bit, to draw this visibility circle with a slightly lower opacity. We will also mark the boids visible to the first one, by making them green.
 
 <figure for="boids_5" id="boids_5" class="figure">
   <canvas width="720" height="400">
@@ -320,25 +344,36 @@ By adding `fillCircle(ctx, 'rgba(218, 165, 32, 0.4)', boid.position, viewRadius)
 </figure>
 
 ```js
-var boids = [];
+function drawBoid(boids[i], color) {
+  fillCircle(ctx, color, boid.position, boidSize);
+  ctx.globalAlpha = 0.3; // This is the opacity
+  fillCircle(ctk, color, boid.position, viewRadius);
+  ctx.globalAlpha = 1;
 
-while (boids.lengthgth < 32) {
-  boids.push(createRandomBoid(40));
+  strokeLine(ctx, 'black', boid.position, boid.velocity);
+  strokeLine(ctx, 'blue', boid.position, steering);
 }
 
-function update(time, dTime) {
+var steering = { x: 0, y: 0 };
+function update(totalTime, elapsedTime) {
   clear(ctx);
-  for(var i = 0; i < boids.lengthgth; ++i) {
-    // this is where we will use our visibility code in a little bit
 
-    moveBoid(boids[i], dTime / 1000);
-    drawBoid(boids[i]);
+  updateBoid(boids[0], steering, elapsedTime / 1000);
+  drawBoid(boids[0], 'goldenrod');
+
+  for(var i = 1; i < boids.lengthgth; ++i) {
+    if (updateAll) {
+      updateBoid(boids[i], steering, elapsedTime / 1000);
+    }
+    var color = 'grey';
+    if (canSee(boids[0], boids[i])) {
+      color = 'limegreen';
+    }
+    drawBoid(boids[i], color);
   }
 }
 ```
-
-XXX
-In the demo only the first boid is updated and is highlighted. There is a button to let all boids update. As you can see, this already gives us some sense of the surroundings of a given boid. We can make the model a bit more realistic, by also taking into account that birds generally cannot see what is behind them. Instead of just marking all the birds within some radius, we also check if they are within some angle (call it the `viewAngle`) of the direction the boid is facing. These two checks together yield an in-sector test -- of which we conveniently can visualise the boundary using the `drawSector` function [we wrote earlier](introduction.html#XXX).
+As you can see, this already gives us some sense of surroundings. Most, if not all birds can not see directly behind them though. We can make our birds a tiny bit more realistic by taking this into account, and it turns out to not be too much effort to add. Aside from checking the distance between a boid and all the others, we also look at the angle between the direction it is flying and the direction to the other boids. We mark another boid visible only if both the distance is smaller than `viewRadius` and the angle is between `-viewAngle / 2` and `viewAngle / 2`. These two checks together yield what is called an in-sector test -- of which we conveniently can visualise the boundary using the `fillSector` function [we wrote earlier](introduction.html#XXX).
 
 <figure for="boids_6" id="boids_6" class="figure">
   <canvas width="720" height="400">
@@ -353,23 +388,26 @@ In the demo only the first boid is updated and is highlighted. There is a button
 </figure>
 
 ```js
-function angleTo(v1, v2) {
-  var angle = Math.abs(Math.atan2(v2.y, v2.x) - Math.atan2(v1.y, v1.x));
-  return (angle > Math.PI) ? 2*Math.PI - angle : angle;
-}
-
 var viewRadius = 50;
-var viewAngle = 1.5 * Math.PI;
+var viewAngle = 1.5 * Math.PI; // 75% of a circle
 
 function canSee(boid, other) {
-  var dPos = {
-    x: neighbours[i].position.x - boid.position.x,
-    y: neighbours[i].position.y - boid.position.y
-  };
-  var distance = Math.sqrt(dPos.x * dPos.x + dPos.y * dPos.y);
-  var angle = angleTo(boid.velocity, dPos);
-  return distance <= viewRadius &&
-    angle >= -viewAngle / 2 && angle <= viewAngle / 2;
+  // Pytagoras!
+  var horizontalDistance = neighbours[i].position.x - boid.position.x;
+  var verticalDistance = neighbours[i].position.y - boid.position.y;
+  var distance = Math.sqrt(horizontalDistance * horizontalDistance 
+                          + verticalDistance * verticalDistance);
+
+  var angle = Math.atan2(boid.velocity.y, boid.velocity.x) 
+            - Math.atan2(verticalDistance, horizontalDistance);
+  // We only care about the difference between the angle, not the direction
+  angle = Math.abs(angle); 
+  if (angle > Math.PI) {
+    // We calculated the outer angle, but we want the inner.
+    angle = Math.PI*2 - angle;
+  }
+
+  return distance <= viewRadius && angle <= viewAngle / 2;
 }
 ```
 
@@ -377,7 +415,24 @@ This is as far as we will consider the visibility for right now, but note that t
 
 ## Please behave
 
-We arrive at the core of the boids algorithm; defining the behavior of our boids. We have implemented *how* steering influences a boid and *what it sees*. Using this, we now decide *where to steer* each boid to. The model does this by combining three steering rules, each of them inspired on what reals birds might do.
+We now arrive at my favorite part of algorithm; defining the behavior of our boids. We have decided how boids move and can be influenced by a `steering` force, and we defined what it knows about its surroundings. We can now finally use this to find out where a boid wants to go to and make it steer to there. The algorithm does this by combining three *steering rules*, each of them inspired on what reals birds might do.
+
+Each of these rules take a boid and a list of all the other boids it can see. We get this list with the following straightforward function:
+
+```js
+function getVisibleBoids(boid, allBoids) {
+  var visibleBoids = [];
+  for (var i = 0; i < allBoids.lengthgth; ++i) {
+    // The first test is there because a boid should not see itself.
+    if (allBoids[i] != boid && canSee(boid, allBoids[i])) {
+      visibleBoids.push(allBoids[i]);
+    }
+  }
+  return visibleBoids;
+}
+```
+
+We will now implement each rule one by one, so we can see the effect of each of them in isolation. In the examples for each of the rules, we use the outcome of that rule directly as the steering force whenever we update a boid.
 
 The first rule we will tackle is *Separation*; the closer the boid is to another boid, the harder it wants to go to the opposite direction. The reasoning behind this is clear. We never see birds fly into each other, this rule will make our boids also try to avoid this:
 
@@ -395,31 +450,27 @@ The first rule we will tackle is *Separation*; the closer the boid is to another
 
 ```js
 function calculateSeparation(boid, visibleBoids) {
-  var sum = { x: 0, y: 0 };
-  for (var i = 0; i < neighbours.lengthgth; ++i) {
-    var dPos = {
-      x: neighbours[i].position.x - boid.position.x,
-      y: neighbours[i].position.y - boid.position.y
-    };
-    var distance = Math.sqrt(dPos.x * dPos.x + dPos.y * dPos.y);
-    var magnitude = viewRadius - distance;
-    sum.x += dPos.x / distance * magnitude;
-    sum.y += dPos.y / distance * magnitude;
+  var separation = { x: 0, y: 0 };
+  for (var i = 0; i < visibleBoids.lengthgth; ++i) {
+    var horizontalDistance = visibleBoids[i].position.x - boid.position.x;
+    var verticalDistance = visibleBoids[i].position.y - boid.position.y;
+    
+    var distance = Math.sqrt(horizontalDistance * horizontalDistance 
+                            + verticalDistance * verticalDistance);
+
+    var size = viewRadius - distance;
+    separation.x -= horizontalDistance / distance * size;
+    separation.y -= verticalDistance / distance * size;
   }
-  return { 
-    x: -sum.x,
-    y: -sum.y
-  };
+  return separation;
 }
 ```
 
-In our implementation we use the fact that any visible boid is at most `viewDistance` pixels away from us. We calculate a vector pointing towards the visible boid, with a length of the `viewDistance` minus the distance to that boid. The resulting vector is very small when the boid is far away from us, and larger when the boid is very close. We sum all these vectors and then flip the result of this, so it points into the other direction.
+In our implementation we use the fact that any visible other boid is at most `viewRadius` pixels away from the current boid. We calculate a vector pointing towards the visible boid, with a length of the `viewRadius` minus the distance to that boid. The resulting vector is very small when the boid is far away from us, and larger when the boid is very close. By substracting all these vectors we end up with a vector that points away from the closest boids we can see.
 
-The next steering component to implement is called *Alignment*. It tells each boid to try to match its speed and direction to the boids it can see. This way, the boid should tend to move in the same direction of the rest of the flock. It also, as the author of ['The computational beauty of nature'][XXX] mentions, helps avoiding collisions, as a result of flying in the same direction.
+On to the next rule; *Alignment*. This rule states that each boid wants to fly in the same direction as the rest of the flock. Aside from wanting to follow the flock, it is also easier for a boid to avoid collisions when it is flying in the same direction as the others.
 
-Because velocity is the combination of direction and speed, it is easy to obtain this component -- we just calculate and return the average difference between the velocity of the visible boids and the primary one.
-
-XXXnote: with the current way we add steering forces, we won't match speed; steering is additive, so if two boids are flying in the same direction, they basically accelerate by eachothers speed. Would this be fixed by averaging over visibleBoid.velocity - boid.velocity?
+This rule is easy to implement -- we just calculate the average direction of all the visible boids and take the difference between this and the direction the current boid is flying in as the steering force.
 
 <figure for="boids_8" id="boids_8" class="figure">
   <canvas width="720" height="400">
@@ -454,7 +505,7 @@ function calculateAlignment(boid, visibleBoids) {
 
 Finally, we have *Cohesion*, which makes the primary boid want to go towards the center of the group it can see. This way the flock will tend to stay together. Another interpretation provided by [Gary William Flake][XXX] is of a self defence purpose: boids that fly at the edge of the flock are easier prey. 
 
-Our approach is similar to our implementation of *Alignment*; we again take an average over the visible boids, but of the positions instead of the velocities. We then return a vector that points from our boid to that average position.
+Our approach is similar to our implementation of *Cohesion*; we take the average position over the visible boids, instead of the velocities. We then return a force that points from the current boid to that location.
 
 <figure for="boids_9" id="boids_9" class="figure">
   <canvas width="720" height="400">
@@ -521,8 +572,8 @@ function calculateSteering(boid, visibleBoids) {
 function update(time, dTime) {
   clear(ctx);
   for(var i = 0; i < boids.lengthgth; ++i) {
-    var neighbours = getVisibleBoids(boid, boids);
-    var steering = calculateSteering(boid, neighbours);
+    var visibleBoids = getVisibleBoids(boid, boids);
+    var steering = calculateSteering(boid, visibleBoids);
     steerBoid(boid, steering, dTime / 1000);
     moveBoid(boid, dTime / 1000);
     drawBoid(boid);
@@ -530,56 +581,86 @@ function update(time, dTime) {
 }
 ```
 
-## Gaining control
+## Conclusion
+
+If you followed along, I hope you see it was not too hard to get something fun happening in javascript. It took us just a few hundred lines of code, and we did it without any libraries or weird tools. I hope to continue writing articles like these, to show more fun and interesting things you can throw together in less than a weekend. Hope to see you next time!
+
+## Afterthoughts
+
+The boids algorithm is very flexible and its original description very vague. For those of you that haven't had enough, I will discuss some interesting details of our implementation and some modifications you could try.
+
+### Gainging control
 
 The keen reader might have realised a problem in our implementation; our boids wrap around the borders of the screen, but we don't account for this in our behavior. We could solve this in our `canSee` routine (which I will leave as an exercise for you). However, the reason we needed screen wrapping at all is more interesting; we didn't want our boids to dissapear off our screen, but we do not control where they go to. Luckily, we can gain *some* control back through a natural extension of the algorithm; by adding more steering rules.
 
-The most simple steering rule is probably one called *seek* XXXfind out originXXX, and steers its subject to some goal.
+The most simple steering rule is probably one called *seek*. The intent is to drive the boid to some set point. It is really easy to implement. 
 
 ```js
 function calculateSeek(boid, goal) {
-  // Note that we could have reused code by calculateCohesion(boid, [goal]);
   return {
     x: goal.x - boid.x,
     x: goal.y - boid.y
   };
 }
+```
 
-var screenCenter = {
-  x: screenWidth / 2,
-  y: screenHeight / 2
-};
-function update(time, dTime) {
-  for(var i = 0; i < boids.lengthgth; ++i) {
-    var boid = boids[i];
-    var visibleBoids = getVisibleBoids(boid, boids);
-    steerBoid(boid, calculateSteering(boid, visibleBoids));
-    steerBoid(boid, calculateSeek(boid, screenCenter));
+We could even make it simpler, by reusing our cohesion rule;
 
-    moveBoid(boid);
-    drawBoid(boid);
-  }
+```js
+function calculateSeek(boid, goal) {
+  return calculateCohesion(boid, [goal]);
 }
 ```
 
-As you can see, we have gained control over where the flock as a whole is going, but we do not control the individual boids. This to me really highlights the elegance of steering rules. They are highly modular building blocks of simple behavior, which combined allows for interesting and complex   behavior. You could for example implement a variant of *Seek*, where whenever a waypoint is reached, swaps it out for a different one, so you can make the flock move along a path. 
+In the next example, I have implemented a system to get the mouse position. The code for this is outside the scope of this article, but the only thing it does is give you the mouse coordinates on the canvas when you call `getMousePosition()`. If we set this to be the goal, we can control where the whole flock goes. Pretty cool!
 
-## Notes and conciderations
+<figure for="boids_10" id="boids_10" class="figure">
+  <canvas width="720" height="400">
+    Your browser does not support canvas.
+  </canvas>
+  <figcaption>
+    Simulation of bird-oids
+    <button onclick="updateEveryBoid = !updateEveryBoid">
+      toggle updating
+    </button><button onclick="rerunFigure();">rerun</button>
+  </figcaption>
+</figure>
 
-The original paper introducing boids gave a general description of the model and mostly discussed ideas behind it. Because of this, other implementations migth differ substantially from the one described here. I would like to conclude this article by reviewing our implementation and discussing some alternatives.
+Another fun and simple one is the *Avoid* rule. As you might have guessed, this is the same as what Separation does, but against one given point, instead of a list:
 
-### Vision
+```js
+function calculateAvoid(boid, predator) {
+  return calculateSeparation(boid, [predator]);
+}
+```
+To demonstrate the effect, we set the seek point to the center of the screen (so that the flock will not move off of the screen) and set the avoid point to the mouse again:
 
-One important reason to reconsider how we find the boids visible to an individual one is performance. When simulating `n` boids, each boid to do `n` `canSee` checks -- `n*n` checks per frame. 
+<figure for="boids_10" id="boids_10" class="figure">
+  <canvas width="720" height="400">
+    Your browser does not support canvas.
+  </canvas>
+  <figcaption>
+    Simulation of bird-oids
+    <button onclick="updateEveryBoid = !updateEveryBoid">
+      toggle updating
+    </button><button onclick="rerunFigure();">rerun</button>
+  </figcaption>
+</figure>
 
-One reason to reconsider . First, since a boid determines where it steers to based on which boids it sees. Changing how we pick these thus influences the steering. By tweaking our `viewRadius` and `viewAngle` we can see our boids behave differently -- maybe with more stable flocks or different general shapes. 
+As you can see we have quite some control over the whole flock, without trying to control each individual boid. This really highlights the elegance of steering rules. They are highly modular building blocks of simple behavior, which combined allows for interesting and complex behavior.
 
-### Steering
+I will mention one last example of steering rules; instead of adding one, we will swap out one. Lets look at *Separation*. To keep things straightforward, I showed you a *linear* implementation of the rule. That is to say that a visible boid that is twice as far away as another has half the influence on the resulting steering force. A popular alternative implementation is quadratic, or a boid that is `n` times closer compared to another has (about) `n*n` times more influence. As a result, birds should be able to fly closer to eachother in general, but will even less likely invade eachothers personal space.
+
+XXXX
+
+### Tweaking
+
+XXX
 
 On a more general note, there are many aspects of our implementation that we could change to tweak the behavior of our flocks. The most powerful of these, next to adding more steering functions like we did *Seek*, is changing how we combine the steering forces. Right now we just add them together and average the result. We gain more control over our model by doing a weighted average.
 
 ```js
-function calculateSteering(boid, neighbours) {
+function calculateSteering(boid, visibleBoids) {
   var separationWeight = 1;
   var alignmentWeight = 1;
   var cohesionWeight = 1;
@@ -610,12 +691,12 @@ We now have control over how important we think each separate rule is. This is e
 For instance, in our *Separation* code we treat visible boids linearly: if one boid is twice as close as another, it has twice the influence on the steering. A quadratic function would look like so:
 
 ```js
-function calculateSeparation(boid, neighbours) {
+function calculateSeparation(boid, visibleBoids) {
   var sum = { x: 0, y: 0 };
-  for (var i = 0; i < neighbours.lengthgth; ++i) {
+  for (var i = 0; i < visibleBoids.lengthgth; ++i) {
     var diff = {
-      x: neighbours[i].position.x - boid.position.x,
-      y: neighbours[i].position.y - boid.position.y
+      x: visibleBoids[i].position.x - boid.position.x,
+      y: visibleBoids[i].position.y - boid.position.y
     };
     var dist = Math.sqrt(diff.x*diff.x + diff.y*diff.y);
     var magnitude = viewRadius - dist;
@@ -632,14 +713,21 @@ function calculateSeparation(boid, neighbours) {
 
 This will make that boids that are very close much more influence the steering, meaning that boids will tend to fly closer to eachother on average, but steer away harder when boids get too close together. 
 
+
+### Performance
+
+This article is meant to show a very straightforward way to implement the algorithm. One of the things you would probably not want to leave in your own implementation are the unnecessary calls to `Math.sqrt()`, as it is a much more expensive operation than, say, a multiply or an addition. However, on the grand scheme of things, this is probably not where you will get any 
+
+One important reason to reconsider how we find the boids visible to an individual one is performance. When simulating `n` boids, each boid to do `n` `canSee` checks -- `n*n` checks per frame. 
+
+One reason to reconsider . First, since a boid determines where it steers to based on which boids it sees. Changing how we pick these thus influences the steering. By tweaking our `viewRadius` and `viewAngle` we can see our boids behave differently -- maybe with more stable flocks or different general shapes. 
+
+### Steering
+
+
 ### 3D
 
-My
-
-* other notes
-  * not just for birds
-  * maybe a short history
-* acknowledgements
+XXXX
 
 <script type="text/javascript" src="boids.js"></script>
 
