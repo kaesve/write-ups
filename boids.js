@@ -307,7 +307,7 @@ figuresByTrigger.boids_3 = {
     var boid = createRandomBoid(speed);
     
     update = function(time, dTime) {
-      moveBoid(boid, dTime/1000);
+      moveBoid(boid, {x: 0, y: 0}, dTime/1000);
       clear(ctx);
       drawBoid(boid, 'goldenrod', 'black');
     };
@@ -327,8 +327,8 @@ figuresByTrigger.boids_4 = {
         x: Math.cos(time/1000) * 20,
         y: Math.sin(time/1000) * 20
       }
-      steerBoid(boid, steering, dTime/1000);
-      moveBoid(boid, dTime/1000);
+      //steerBoid(boid, steering, dTime/1000);
+      moveBoid(boid, steering, dTime/1000);
       clear(ctx);
       drawBoid(boid, 'goldenrod', 'black');
       strokeParametricLine(ctx, 'royalblue', boid.position, steering);
