@@ -288,7 +288,7 @@ This makes it easy to create, say, a 100 boids and update and draw them every fr
 ```js
 var boids = [];
 
-while (boids.lengthgth < 100) {
+while (boids.length < 100) {
   boids.push(createRandomBoid(40));
 }
 
@@ -300,7 +300,7 @@ function update(totalTime, elapsedTime) {
   updateBoid(boids[0], steering, elapsedTime / 1000);
   drawBoid(boids[0], 'goldenrod');
 
-  for(var i = 1; i < boids.lengthgth; ++i) {
+  for(var i = 1; i < boids.length; ++i) {
     if (updateAll) {
       updateBoid(boids[i], steering, elapsedTime / 1000);
     }
@@ -656,8 +656,9 @@ XXXX
 ### Tweaking
 
 XXX
+Aside from very easy to extend, there are also a lot of paramters to play with. There are the view distance and angle, and the maximum speed, to name a few obvious ones. And with a minor modification we gain much more control over the steering, and thus over how the flock behaves. Instead of just adding the steering forces, we can introducee a weight variable for each rule. This way we can control how much, say, separation plays a role in the total behavior of the flock. The following example shows all the code we need to change to achieve this, and has some extra controls so we can change the values on the fly.
 
-On a more general note, there are many aspects of our implementation that we could change to tweak the behavior of our flocks. The most powerful of these, next to adding more steering functions like we did *Seek*, is changing how we combine the steering forces. Right now we just add them together and average the result. We gain more control over our model by doing a weighted average.
+XXXX
 
 ```js
 function calculateSteering(boid, visibleBoids) {
@@ -666,7 +667,7 @@ function calculateSteering(boid, visibleBoids) {
   var cohesionWeight = 1;
   var totalWeight = separationWeight + alignmentWeight + cohesionWeight;
 
-  if (visibleBoids.lengthgth > 0) {
+  if (visibleBoids.length > 0) {
     var separation = calculateSeparation(boid, visibleBoids);
     var alignment = calculateAlignment(boid, visibleBoids);
     var cohesion = calculateCohesion(boid, visibleBoids);
@@ -685,49 +686,19 @@ function calculateSteering(boid, visibleBoids) {
   }
 }
 ```
-
-We now have control over how important we think each separate rule is. This is especially useful when we 
-
-For instance, in our *Separation* code we treat visible boids linearly: if one boid is twice as close as another, it has twice the influence on the steering. A quadratic function would look like so:
-
-```js
-function calculateSeparation(boid, visibleBoids) {
-  var sum = { x: 0, y: 0 };
-  for (var i = 0; i < visibleBoids.lengthgth; ++i) {
-    var diff = {
-      x: visibleBoids[i].position.x - boid.position.x,
-      y: visibleBoids[i].position.y - boid.position.y
-    };
-    var dist = Math.sqrt(diff.x*diff.x + diff.y*diff.y);
-    var magnitude = viewRadius - dist;
-    magnitude = magnitude * magnitude;
-    sum.x += diff.x / dist * magnitude;
-    sum.y += diff.y / dist * magnitude;
-  }
-  return { 
-    x: -sum.x,
-    y: -sum.y
-  };
-}
-```
-
-This will make that boids that are very close much more influence the steering, meaning that boids will tend to fly closer to eachother on average, but steer away harder when boids get too close together. 
-
+You might see some interesting effects if you play around with it for a bit. For instance, 
 
 ### Performance
 
-This article is meant to show a very straightforward way to implement the algorithm. One of the things you would probably not want to leave in your own implementation are the unnecessary calls to `Math.sqrt()`, as it is a much more expensive operation than, say, a multiply or an addition. However, on the grand scheme of things, this is probably not where you will get any 
+This article is meant to show a very straightforward way to implement the algorithm. One of the things you would probably not want to leave in your own implementation are the unnecessary calls to `Math.sqrt()`, as it is a much more expensive operation than, say, a multiply or an addition. However, on the grand scheme of things, this will probably not you out too much. 
 
 One important reason to reconsider how we find the boids visible to an individual one is performance. When simulating `n` boids, each boid to do `n` `canSee` checks -- `n*n` checks per frame. 
 
 One reason to reconsider . First, since a boid determines where it steers to based on which boids it sees. Changing how we pick these thus influences the steering. By tweaking our `viewRadius` and `viewAngle` we can see our boids behave differently -- maybe with more stable flocks or different general shapes. 
 
-### Steering
-
-
 ### 3D
 
-XXXX
+Because I wanted to keep things simple, this article describes the algorithm in 2D. There is nothing that prevents this algorithm working in 3D though. To prove this, I wrote a WebGl version you can see over [here][http://kaesve.nl/boids/index3d.html]. Going from a 2D implementation to a 3D implementation took me less than an hour -- aside from the drawing code. 
 
 <script type="text/javascript" src="boids.js"></script>
 
