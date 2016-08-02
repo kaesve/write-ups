@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<head>
+	<style type="text/css">
+		*, *:before, *:after {
+			border: none;
+			padding: 0; margin: 0;
+			box-sizing: border-box;
+		}
+
+		canvas {
+			border: 1px solid black;
+		}
+	</style>
+	<!-- <script type="text/javascript" src="lib/react.js"></script> -->
+
+
+  <script type="text/javascript" src="node_modules/redux/dist/redux.js"></script>
+  <script type="text/javascript" src="node_modules/react/dist/react.js"></script>
+  <script type="text/javascript" src="node_modules/react-dom/dist/react-dom.js"></script>
+
+
+	<script type="text/javascript" src="math.js"></script>
+	<script type="text/javascript" src="utils.js"></script>
+	<script type="text/javascript" src="canviz.js"></script>
+	<script>
+		function expandString(str, rules) {
+			var newStr = "";
+			for (var i = 0; i < str.length; ++i) {
+				var char = rules[str[i]];
+				newStr += rules[char] || char;
+			}
+
+			return newStr;
+		}
+
+		function drawString(ctx, str, routines) {
+			for (var i = 0; i < str.length; ++i) {
+				var char = rules[str[i]];
+
+				if (char in routines) routines[char](ctx);
+			}
+		}
+	</script>
+
+	<script type="text/javascript" src="build/main.js"></script>
+	<style>
+	#app_container {
+		white-space: pre;
+		font-family: monospace;
+		text-align: right;
+	}
+	</style>
+</head>
+
+<body>
+
+	<canvas id="render_target"></canvas>
+	<div id="app_container"></div>
+	<div id="mode_container"></div>
+
+</body>
