@@ -1,6 +1,6 @@
 # Growing trees with JavaScript
 
-My favorite browser feature is the Canvas API. It is a simple 2D graphics API, that allows you to programmatically draw things in the browser. I have used it to render star systems, bird flocks, games and interactive widgets. I'd love to give you a hands-on introduction, using my first 'serious' project with the API.
+My first serious project I wrote in JavaScript, was drawing L-Systems using the Canvas API. It was also the what sparked my love for the canvas, and JavaScript in general. Here, I would like to take you through what L-Systems are, and one way you can leverage the Canvas API to draw cool things without too much effort. To get the most out of this article, you should be familiar with JavaScript, and also the basics of the API. You can read up on that over here [add link].
 
 ## L-Systems
 
@@ -60,7 +60,7 @@ This outputs:
 
 We conveniently can use plain JavaScript objects to describe our rules. Our symbols are also just text characters, so we can use JavaScripts strings for our symbol strings.
 
-By now you might be wondering what any of this has to do with plants and trees. If you hoped that L-Systems will create beautiful flora *automagically* for you, you may be a little disappointed. In reality, you take the string that comes out of an L-System and then decide how to draw it *yourself*. It is up to you to decide how you want to interpret each symbol. Even our example is growing a tree, if you interpret `A` to be a branch segment, `B` a branch segment with a leaf, `L` as starting a new branch to the left and `R` as starting a new branch to the right. If you are not convinced, the rest of the article shows you how to draw this out, using the canvas API.
+By now you might be wondering what any of this has to do with plants and trees. It turns out L-Systems do not create beautiful flora *automagically*. It is up to you how you want to interpret each symbol in a system, and what to do with it. Even our example is growing a tree, if you interpret `A` to be a branch segment, `B` a branch segment with a leaf, `L` as starting a new branch to the left and `R` as starting a new branch to the right. The rules can also be interpreted as a model of the growth of the tree: every step of the system, we see that each leaf is replaced with two new branches, to the left and to the right, and each branch segment is doubled in size. If you are not convinced, the rest of the article shows you how to draw this tree out, using the canvas API.
 
 ## A blank canvas
 
@@ -72,9 +72,7 @@ var canvasElem = document.getElementById("my-canvas");
 var ctx = canvasElem.getContext('2d');
 ```
 
-We use `ctx` as a shorthand, because we will be typing it *a lot*. The object we get gives us access to raw pixel data displayed in the canvas, and also has a whole range of procedures we can call, to draw to the canvas.
-
-We want to draw something based on the output of our system, and more specifically, we want to do some drawing operations of every symbol in a given symbol string. We can do that by writing a drawing procedure per symbol, and store them in an object, similar to how we store the rules of our system. This is outlined in the example below:
+We use `ctx` as a shorthand, because we will be typing it *a lot*. We want to draw something based on the output of our system, and more specifically, we want to do some drawing operations of every symbol in a given symbol string. We can do that by writing a drawing procedure per symbol, and store them in an object, similar to how we store the rules of our system. This is outlined in the example below:
 
 ``` javascript
 function drawA(ctx) { /* write drawing code here */ }
@@ -100,20 +98,52 @@ function drawString(ctx, string, drawingRules) {
 }
 ```
 
-With our infrastructure in place, we only need do write our actual drawing code. Let's take a moment to think what we want to do here. 
-
-For example, it can be used to draw a line:
+With our infrastructure in place, we only need to write our actual drawing code. Let's start with the `A` symbol, of which we said it represents a segment of branch of the tree. To keep it simple, we just want to draw a 2-unit long line along the direction of the branch. The general procedure to draw a line is pretty straight-forward: 
 
 ``` javascript
-// A line
 ctx.beginPath();
-ctx.moveTo(10, 10);
-ctx.lineTo(30, 10);
+ctx.moveTo(startX, startY);
+ctx.lineTo(endX, endY);
 ctx.stroke();
 ```
 
-There are a few things to notice about this piece of code. If you look closely at your screen, you'll see the canvas coordinate system starts in the top left, and increases to the right and the bottom. Moreover, it shows a pretty typical workflow for doing things with the canvas; We clear any existing state regarding paths, configure a new state, and then do one drawing operation.
+So all we need to do is figure out what the start and end coordinates are of our segment. But this is not in any way encoded in the symbol we are currently trying to draw. What we want to do when we encounter an `A` symbol, is draw 2 units from our _current location_ into our _current direction_, and then update the current location. This could be achieved by keeping that state ourselves, and passing that into the drawing procedures, but it turns out we can also leverage the canvas coordinate system, to do this for us. With `ctx.translate(someX, someY)` we say "shift the coordinate system, so that the origin now is at [someX, someY]". We can use this as follows:
 
 
+``` javascript
+function drawA(ctx) {
+	ctx.beginPath();
+	ctx.moveTo(0,  0);
+	ctx.lineTo(0, -2);
+	ctx.stroke();
 
-this example shows that the context object we work with has a lot of state. We first tell it we want to draw a new shape, with `ctx.beginPath();`, then we tell it to construct a shape (in this case a line), and finally we call `ctx.stroke();` to call
+	ctx.translate(0, -2);
+}
+```
+
+As you can see, we now just always start at `[0, 0]` and then draw a line two units up (note that up is the negative direction in the canvas coordinate system, so that's why we need to use `-2`). After that we make sure that `[0, 0]` occurs at the end of the line segment we just drew, so we are ready for the next operation.
+
+With the `A` symbol done, there are 3 more to go. I told you `L` and `R` symbols are the start of a new branch, growing in the left or right direction, and `B` is the end of a branch, with a leaf. If you look back to the production rule `B ⇒ A L B R B`, you may notice that the `L` and `R` symbols always come in pairs, and are accompanied by two branch ends.
+
+
+blablabla
+
+``` javascript
+function drawL(ctx) {
+	ctx.save();
+	ctx.rotate(Math.PI/2);
+}
+
+function drawR(ctx) {
+	ctx.save();
+	ctx.rotate(-Math.PI/2);
+}
+
+function drawB(ctx) {
+	var r = 3;
+	ctx.fillStyle = 'green';
+	ctx.arc(0, -r, r, 0, Math.PI*2);
+	ctx.fill();
+	ctx.restore();
+}
+```
